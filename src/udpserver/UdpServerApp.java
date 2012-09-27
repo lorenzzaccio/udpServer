@@ -20,7 +20,11 @@ public class UdpServerApp extends SingleFrameApplication {
      */
     @Override protected void startup() {
         try {
-            show(new UdpServerView(this));
+            try {
+                show(new UdpServerView(this));
+            } catch (InterruptedException ex) {
+                Logger.getLogger(UdpServerApp.class.getName()).log(Level.SEVERE, null, ex);
+            }
         } catch (IOException ex) {
             Logger.getLogger(UdpServerApp.class.getName()).log(Level.SEVERE, null, ex);
         }

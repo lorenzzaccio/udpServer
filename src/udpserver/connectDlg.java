@@ -11,6 +11,8 @@
 
 package udpserver;
 
+import udp.globalCom;
+
 /**
  *
  * @author Lorenzzaccio
@@ -150,17 +152,17 @@ UdpServerView m_parent;
 
     private void formComponentShown(java.awt.event.ComponentEvent evt) {//GEN-FIRST:event_formComponentShown
         // get local Ip
-        localIpTxt.setText(m_parent.m_localIp);
-        targetIpTxt.setText(m_parent.m_targetIp);
-        recptPortTxt.setText(m_parent.m_recptPort);
-        sendPortTxt.setText(m_parent.m_sendPort);
+        localIpTxt.setText(globalCom.m_localIp);
+        targetIpTxt.setText(globalCom.m_targetIp);
+        recptPortTxt.setText(globalCom.m_recptPort);
+        sendPortTxt.setText(globalCom.m_sendPort);
     }//GEN-LAST:event_formComponentShown
 
     private void okBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_okBtnActionPerformed
-        m_parent.m_localIp=localIpTxt.getText();
-        m_parent.m_targetIp = targetIpTxt.getText();
-        m_parent.m_recptPort = recptPortTxt.getText();
-        m_parent.m_sendPort = sendPortTxt.getText();
+        globalCom.m_localIp=localIpTxt.getText();
+        globalCom.m_targetIp = targetIpTxt.getText();
+        globalCom.m_recptPort = recptPortTxt.getText();
+        globalCom.m_sendPort = sendPortTxt.getText();
 
         this.dispose();
     }//GEN-LAST:event_okBtnActionPerformed

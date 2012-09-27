@@ -51,10 +51,9 @@ public class comUdp implements protocole{
             int k=0;
             String argString=arg;
 
-
             //logTxt.append("target address : " + targetAddrTxt.getText() + "\n");
             InetAddress address = InetAddress.getByName(targetAddress);
-            buf = (Integer.toString(START_BYTE) +Integer.toString(cmd) + String.format("%2d",lengthArg) +argString + Integer.toString(END_BYTE)).getBytes();
+            buf = (Integer.toString(START_BYTE) +Integer.toString(cmd) + String.format("%02d",lengthArg) +argString + Integer.toString(END_BYTE)).getBytes();
 
             DatagramPacket packet = new DatagramPacket(buf, buf.length, address, Integer.valueOf(sendPort));
             socket.send(packet);
