@@ -37,6 +37,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.net.DatagramPacket;
+import java.net.MulticastSocket;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -252,6 +254,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
 
         varBkTh.start();
         Thread connectionTh = new Thread() {
+
             @Override
             public void run() {
                 connectClient();
@@ -609,10 +612,10 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             }
         });
         magP1Txt.addInputMethodListener(new java.awt.event.InputMethodListener() {
-            public void caretPositionChanged(java.awt.event.InputMethodEvent evt) {
-            }
             public void inputMethodTextChanged(java.awt.event.InputMethodEvent evt) {
                 magP1TxtInputMethodTextChanged(evt);
+            }
+            public void caretPositionChanged(java.awt.event.InputMethodEvent evt) {
             }
         });
         magP1Txt.addPropertyChangeListener(new java.beans.PropertyChangeListener() {
@@ -998,7 +1001,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
                                                 .add(minusMagTxt)
                                                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                                                 .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
-                                                    .add(writeBtn, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 67, Short.MAX_VALUE)
+                                                    .add(writeBtn, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 67, Short.MAX_VALUE)
                                                     .add(mainPanelLayout.createSequentialGroup()
                                                         .add(getVarBtn)
                                                         .add(22, 22, 22)))))
@@ -1025,7 +1028,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
                         .add(14, 14, 14)
                         .add(jLabel3)
                         .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
-                        .add(ipRmtTxt, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 271, Short.MAX_VALUE)
+                        .add(ipRmtTxt, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 253, Short.MAX_VALUE)
                         .add(18, 18, 18)
                         .add(jLabel4)
                         .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
@@ -1056,14 +1059,15 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
                             .add(fastModeToggleBtn, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 38, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                             .add(getEnvBtn, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 48, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(org.jdesktop.layout.LayoutStyle.UNRELATED)
-                        .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE, false)
-                            .add(jLabel5)
-                            .add(magP1Txt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
-                            .add(plusMagTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 24, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
-                            .add(minusMagTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 25, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                        .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING, false)
                             .add(mainPanelLayout.createSequentialGroup()
                                 .add(2, 2, 2)
-                                .add(getVarBtn)))
+                                .add(getVarBtn))
+                            .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE)
+                                .add(jLabel5)
+                                .add(magP1Txt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                .add(plusMagTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 24, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                .add(minusMagTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 25, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)))
                         .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                         .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE, false)
                             .add(jLabel6)
@@ -1098,8 +1102,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
                         .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                         .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE)
                             .add(jLabel10)
-                            .add(resteAProduireTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
-                        .add(158, 158, 158))
+                            .add(resteAProduireTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)))
                     .add(mainPanelLayout.createSequentialGroup()
                         .add(23, 23, 23)
                         .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE)
@@ -1137,7 +1140,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
                                 .add(jScrollPane2, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 224, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                                 .add(jScrollPane3, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 224, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)))))
-                .addContainerGap())
+                .add(0, 0, 0))
         );
 
         menuBar.setName("menuBar"); // NOI18N
@@ -1226,7 +1229,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
     private void connectClient() {
         try {
             //init socket
-            DatagramSocket socketRecpt;
+/*            DatagramSocket socketRecpt;
             int portRecpt;
             //reception
             globalCom.m_recptPort = portLclTxt.getText();
@@ -1236,6 +1239,29 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             globalCom.m_sendPort = portRmtTxt.getText();
             InetAddress laddrRecept = InetAddress.getByName(globalCom.m_localIp);
             socketRecpt = new DatagramSocket(portRecpt, laddrRecept);
+*/
+
+            MulticastSocket socket = new MulticastSocket(5000);
+            InetAddress group = InetAddress.getByName("230.0.0.1");
+
+            socket.joinGroup(group);
+            byte[] buf = new byte[256];
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
+
+            socket.receive(packet);
+            socket.leaveGroup(group);
+            socket.close();
+            handlePing(packet);
+            String received = new String(packet.getData());
+            System.out.println("Quote of the Moment: " + received);
+
+
+
+//            socket.leaveGroup(group);
+
+//            socket.close();
+
+/*
             //start server thread
             QuoteServerThread m_serverThread = new QuoteServerThread(socketRecpt, this.getFrame());
             m_serverThread.setRefLogui(logTxt);
@@ -1244,9 +1270,53 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             m_serverThread.setRefUI(cadenceTxt, totalAProduireTxt, magP1Txt, capsBonnesTxt, dechetsTxt, videsTxt, poubelleTxt, speedSlider, speedSliderSet);
 
             m_serverThread.start();
-
+*/
         } catch (IOException ex) {
             Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void handlePing(DatagramPacket packet) throws UnknownHostException, SocketException, IOException {
+        byte[] toto = packet.getData();
+        InetAddress m_hostAddress = packet.getAddress();
+        int m_hostPort = 5001;//packet.getPort();
+        String[] m_val = new String[packet.getLength() - 8];
+        String m_startByte = String.valueOf((char) toto[0]) + String.valueOf((char) toto[1]);
+        Integer m_cmd = Integer.valueOf(String.valueOf((char) toto[2]) + String.valueOf((char) toto[3]));
+        Integer m_length = Integer.valueOf(String.valueOf((char) toto[4]) + String.valueOf((char) toto[5]) + String.valueOf((char) toto[6]) + String.valueOf((char) toto[7]));
+
+        char[] dataBuf = new char[m_length];
+        int k = 0;
+        for (int i = HEADER_SIZE; i < (HEADER_SIZE + m_length); i++) {
+            dataBuf[k] = (char) toto[i];
+            k++;
+        }
+        String m_endByte = String.valueOf((char) toto[packet.getLength() - 2]) + String.valueOf((char) toto[packet.getLength() - 1]);
+        if ((Integer.valueOf(m_startByte) == 23) && (Integer.valueOf(m_endByte) == 32)) {
+            if (m_cmd == PING_CMD) {
+                if (globalCom.m_searchingRobot) {
+                    portRmtTxt.setText(Integer.toString(m_hostPort));
+                    globalCom.m_sendPort = Integer.toString(m_hostPort);
+                    ipRmtTxt.setText(m_hostAddress.getHostAddress());
+                    globalCom.m_targetIp = m_hostAddress.getHostAddress();
+                    
+                    
+                    //create new socket
+                    InetAddress laddrRecept = InetAddress.getByName(globalCom.m_localIp);
+                    DatagramSocket socketRecpt = new DatagramSocket(Integer.valueOf(globalCom.m_recptPort), laddrRecept);
+                    //start server thread
+                    QuoteServerThread m_serverThread = new QuoteServerThread(socketRecpt, this.getFrame());
+                    m_serverThread.setRefLogui(logTxt);
+                    m_serverThread.setToken(bSendReq);
+                    m_serverThread.setRefParent(this);
+                    m_serverThread.setRefUI(cadenceTxt, totalAProduireTxt, magP1Txt, capsBonnesTxt, dechetsTxt, videsTxt, poubelleTxt, speedSlider, speedSliderSet);
+
+                    m_serverThread.start();
+                    comUdp.sendData(SET_CLIENT_CONNECTION_CMD, globalCom.m_recptPort, m_hostAddress.getHostAddress(), Integer.toString(m_hostPort));
+                    
+
+                }
+            }
         }
     }
 

@@ -9,7 +9,8 @@ package udp;
  * @author lorenzzaccio
  */
 public interface protocole {
-
+    final static int HEADER_SIZE = 8;
+    
     final static int START_BYTE = 23;
     final static int END_BYTE = 32;
     final static int GET_SPEED = 0;

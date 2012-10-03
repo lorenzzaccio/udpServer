@@ -53,14 +53,14 @@ import udp.globalCom;
 import udp.protocole;
 import udpserver.UdpServerView;
 
-public class QuoteServerThread extends Thread implements protocole,tableMap {
+public class QuoteServerThread extends Thread implements protocole, tableMap {
 
     protected DatagramSocket socket = null;
     protected BufferedReader in = null;
     protected boolean recptLoop = true;
     private JTextArea m_trace;
     private boolean m_bSendReq = false;
-    public String[] getVal ;
+    public String[] getVal;
     public byte[] bVal = new byte[20];
     private JTextField m_cadenceTxt;
     private JTextField m_bonnesTxt;
@@ -97,7 +97,7 @@ public class QuoteServerThread extends Thread implements protocole,tableMap {
             System.err.println("Could not open quote file. Serving time instead.");
         }
     }
-final static int HEADER_SIZE = 8;
+
     @Override
     public void run() {
         while (recptLoop) {
@@ -115,20 +115,20 @@ final static int HEADER_SIZE = 8;
                     byte[] toto = packet.getData();
                     m_hostAddress = packet.getAddress();
                     m_hostPort = packet.getPort();
-                    m_val = new String[packet.getLength()-8];
+                    m_val = new String[packet.getLength() - 8];
 
                     m_startByte = String.valueOf((char) toto[0]) + String.valueOf((char) toto[1]);
                     m_cmd = Integer.valueOf(String.valueOf((char) toto[2]) + String.valueOf((char) toto[3]));
-                    m_length = Integer.valueOf(String.valueOf((char) toto[4]) + String.valueOf((char) toto[5]) + String.valueOf((char) toto[6]) + String.valueOf((char) toto[7]) );
-                    
-                    char[] dataBuf = new char[m_length]; 
+                    m_length = Integer.valueOf(String.valueOf((char) toto[4]) + String.valueOf((char) toto[5]) + String.valueOf((char) toto[6]) + String.valueOf((char) toto[7]));
+
+                    char[] dataBuf = new char[m_length];
                     int k = 0;
-                    for(int i = HEADER_SIZE;i<(HEADER_SIZE+m_length);i++){
+                    for (int i = HEADER_SIZE; i < (HEADER_SIZE + m_length); i++) {
                         dataBuf[k] = (char) toto[i];
                         k++;
                     }
 
-                    m_endByte = String.valueOf((char) toto[packet.getLength()-2]) + String.valueOf((char) toto[packet.getLength()-1]);
+                    m_endByte = String.valueOf((char) toto[packet.getLength() - 2]) + String.valueOf((char) toto[packet.getLength() - 1]);
                     handleReception(dataBuf);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -142,43 +142,43 @@ final static int HEADER_SIZE = 8;
         socket.close();
     }
 
-    private void handleReception(char[] dataBuf){
+    private void handleReception(char[] dataBuf) {
         String[] splitter;
         varTableModel tm = (varTableModel) m_parent.objVarModel;
-        if ((Integer.valueOf(m_startByte) == 23) && (Integer.valueOf(m_endByte) == 32)){
+        if ((Integer.valueOf(m_startByte) == 23) && (Integer.valueOf(m_endByte) == 32)) {
             String data = "";
-            /*for(int i = 0;i< m_length;i++){
-                data = data + m_val[i];
-            }*/
             data = String.copyValueOf(dataBuf);
 
-            switch(m_cmd){
+            switch (m_cmd) {
                 case PING_CMD:
-                    if (globalCom.m_searchingRobot){
-                        comUdp.sendData(SET_CLIENT_CONNECTION_CMD,  globalCom.m_recptPort, m_hostAddress.getHostAddress(), Integer.toString(m_hostPort));
+                    if (globalCom.m_searchingRobot) {
+                        comUdp.sendData(SET_CLIENT_CONNECTION_CMD, globalCom.m_recptPort, m_hostAddress.getHostAddress(), Integer.toString(m_hostPort));
                         m_parent.portRmtTxt.setText(Integer.toString(m_hostPort));
-                        globalCom.m_sendPort=Integer.toString(m_hostPort);
+                        globalCom.m_sendPort = Integer.toString(m_hostPort);
                         m_parent.ipRmtTxt.setText(m_hostAddress.getHostAddress());
                         globalCom.m_targetIp = m_hostAddress.getHostAddress();
                         globalCom.m_searchingRobot = false;
                     }
                     break;
-                case GET_REG_CMD :
+                case GET_REG_CMD:
                     int line = Integer.valueOf(data.substring(0, 4));
-                    String val =data.substring(4, 8);
-                    m_parent.objTableModel.setValueBoolAt(val,line-1,VALUE_COL,false);
+                    String val = data.substring(4, 8);
+                    m_parent.objTableModel.setValueBoolAt(val, line - 1, VALUE_COL, false);
                     break;
                 case GET_VAR_CMD:
                     splitter = data.split("=");
-                    for(int i =0; i < tm.getRowCount();i++){
-                        if(tm.getValueAt(i, ADDRESS_COL).equals(splitter[0])){
-                            tm.setValueVarAt(splitter[1], i, VALUE_COL,false);
+                    for (int i = 0; i < tm.getRowCount(); i++) {
+                        if (tm.getValueAt(i, ADDRESS_COL).equals(splitter[0])) {
+                            tm.setValueVarAt(splitter[1], i, VALUE_COL, false);
                         }
                     }
                     break;
                 case GET_ENV_CMD:
                     splitter = data.split("-");
                     updateUi(splitter);
+                    break;
+                case SET_CLIENT_CONNECTION_CMD:
+                    globalCom.m_searchingRobot = false;
                     break;
 
             }
@@ -237,9 +237,10 @@ final static int HEADER_SIZE = 8;
         m_speedSliderSet = speedSliderSet;
     }
 
-    public void setRefParent(UdpServerView parent){
+    public void setRefParent(UdpServerView parent) {
         m_parent = parent;
     }
+
     public void setToken(boolean bSendReq) {
         m_bSendReq = bSendReq;
     }
