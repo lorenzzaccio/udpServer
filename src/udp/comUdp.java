@@ -26,7 +26,7 @@ public class comUdp implements protocole{
          if (arg==null)
              lengthArg=0;
          else
-             lengthArg = arg.length()/2;
+             lengthArg = arg.length();
 
          try {
             socket = new DatagramSocket();
@@ -34,10 +34,8 @@ public class comUdp implements protocole{
             byte[] buf = new byte[256];
             switch (cmd){
 
-                
-
-                case SET_SEND_VAR_CMD:
-                    lengthArg=1;
+                case SET_VAR_CMD:
+                    //lengthArg=1;
                     break;
 
                 case SET_SPEED_CMD:
@@ -48,12 +46,10 @@ public class comUdp implements protocole{
                     break;
                          }
 
-            int k=0;
             String argString=arg;
-
             //logTxt.append("target address : " + targetAddrTxt.getText() + "\n");
             InetAddress address = InetAddress.getByName(targetAddress);
-            buf = (Integer.toString(START_BYTE) +Integer.toString(cmd) + String.format("%02d",lengthArg) +argString + Integer.toString(END_BYTE)).getBytes();
+            buf = (Integer.toString(START_BYTE) +Integer.toString(cmd) + String.format("%04d",lengthArg) +argString + Integer.toString(END_BYTE)).getBytes();
 
             DatagramPacket packet = new DatagramPacket(buf, buf.length, address, Integer.valueOf(sendPort));
             socket.send(packet);

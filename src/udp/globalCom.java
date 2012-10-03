@@ -13,4 +13,5 @@ public class globalCom {
     public static String m_targetIp = "";
     public static String m_localIp="";
     public static String m_recptPort="";
+    public static boolean m_searchingRobot=true;
 }

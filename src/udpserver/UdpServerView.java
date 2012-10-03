@@ -31,11 +31,15 @@ import udp.protocole;
 import util.*;
 import dataTable.MyTableModel;
 import dataTable.tableMap;
+import dataTable.varTableModel;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import javax.swing.ListSelectionModel;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import multicastQuoteServer.multicastQuoteServerThread;
 import udp.globalCom;
 
@@ -44,13 +48,17 @@ import udp.globalCom;
  */
 public class UdpServerView extends FrameView implements protocole, tableMap {
 
+    private static int MAX_IO = 100;
+    private static int MAX_VAR = 25;
     quoteClient m_clientThread;
     boolean bSendReq = false;
     private boolean speedSliderSet = false;
-    //public String m_localIp, m_targetIp, m_recptPort, m_sendPort;
     private String m_oldMagP1 = "0";
     public boolean bWriteFile = false;
-    MyTableModel objTableModel;
+    public boolean bWriteVarFile = false;
+    public MyTableModel objTableModel;
+    public varTableModel objVarModel;
+    private int m_selectedRow;
 
     public UdpServerView(SingleFrameApplication app) throws IOException, InterruptedException {
         super(app);
@@ -162,27 +170,33 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
         }
         globalCom.m_localIp = addr.toString().split("/")[1];
-        iplclTxt1.setText(globalCom.m_localIp);
+        iplclTxt.setText(globalCom.m_localIp);
 
-        globalCom.m_targetIp = ipRmtTxt1.getText();
+        globalCom.m_targetIp = ipRmtTxt.getText();
         globalCom.m_recptPort = portLclTxt.getText();
         globalCom.m_sendPort = portRmtTxt.getText();
 
-
         //table part
         String[] columnNames = {"Adresse", "Nom", "Valeur"};
-
-
+        ioTable.getSelectionModel().addListSelectionListener(new RowListener());
+        ioTable.setRowSelectionAllowed(true);
+        ioTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         objTableModel = new MyTableModel(columnNames);
-        for (int i = 1; i < 100; i++) {
-            Object[] data = {String.format("%02d", i), "inconnu", new Boolean(false)};
-            objTableModel.addRow(data);
-        }
-        jTable1.setModel(objTableModel);
-        jTable1.getModel().addTableModelListener(objTableModel);
-        
+        m_selectedRow = 0;
+        ioTable.getModel().addTableModelListener(objTableModel);
 
-        //background task
+        //varTable part
+        String[] varColumnNames = {"Nom", "Desc", "Valeur"};
+
+        objVarModel = new varTableModel(varColumnNames);
+        for (int i = 1; i < 20; i++) {
+            Object[] data = {String.format("var%02d", i), "no desc", "0"};
+            objVarModel.addRow(data);
+        }
+        varTable.setModel(objVarModel);
+        varTable.getModel().addTableModelListener(objVarModel);
+
+        //background task for filling register table
         Thread bkTh = new Thread() {
 
             boolean bLoop = true;
@@ -209,6 +223,67 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
         };
 
         bkTh.start();
+
+        //background task for filling register table
+        Thread varBkTh = new Thread() {
+
+            boolean bLoop = true;
+
+            @Override
+            public void run() {
+                while (bLoop == true) {
+                    try {
+                        bWriteVarFile = objVarModel.getChangeEvent();
+                        if (bWriteVarFile) {
+                            try {
+                                writeVarFile("../conf/varDescRegister.txt");
+                                bWriteVarFile = false;
+                            } catch (IOException ex) {
+                                Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                        sleep(1000);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        };
+
+        varBkTh.start();
+        Thread connectionTh = new Thread() {
+            @Override
+            public void run() {
+                connectClient();
+                while (globalCom.m_searchingRobot == true) {
+                    try {
+                        sleep(100);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+                ;
+                loadIoTable();
+                loadVarTable();
+
+            }
+        };
+        connectionTh.start();
+
+    }
+
+    private class RowListener implements ListSelectionListener {
+
+        public void valueChanged(ListSelectionEvent event) {
+            if (event.getValueIsAdjusting()) {
+                return;
+            }
+            m_selectedRow = 0;
+            for (int c : ioTable.getSelectedRows()) {
+                System.out.println(String.format(" %d", c));
+                m_selectedRow = c;
+            }
+        }
     }
 
     /********************
@@ -219,23 +294,57 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             BufferedReader in = new BufferedReader(new FileReader(filename));
             String str;
             while ((str = in.readLine()) != null) {
-                process(str);
+                if (str.length() > 0) {
+                    process(str);
+                }
+            }
+            ioTable.setModel(objTableModel);
+            in.close();
+        } catch (IOException e) {
+        }
+    }
+
+    /********************
+     *
+     */
+    public void readVarFile(String filename) {
+        int rowIndex = 0;
+        try {
+            BufferedReader in = new BufferedReader(new FileReader(filename));
+            String str;
+            while ((str = in.readLine()) != null) {
+                processVar(str, rowIndex);
+                rowIndex++;
             }
             in.close();
         } catch (IOException e) {
         }
     }
 
-    public void writeFile(String fielname) throws IOException {
-        File file = new File(fielname);
+    public void writeFile(String filename) throws IOException {
+        File file = new File(filename);
         // if file doesnt exists, then create it
         if (!file.exists()) {
             file.createNewFile();
         }
         FileWriter fw = new FileWriter(file.getAbsoluteFile());
         BufferedWriter bw = new BufferedWriter(fw);
-        //bw.write(content);
         processWriting(bw);
+        bw.close();
+    }
+
+    /***********************************
+     *
+     */
+    public void writeVarFile(String filename) throws IOException {
+        File file = new File(filename);
+        // if file doesnt exists, then create it
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        FileWriter fw = new FileWriter(file.getAbsoluteFile());
+        BufferedWriter bw = new BufferedWriter(fw);
+        processVarWriting(bw);
         bw.close();
     }
 
@@ -246,11 +355,27 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
      */
     private void processWriting(BufferedWriter bw) throws IOException {
         int i;
-        MyTableModel tm = (MyTableModel) jTable1.getModel();
+        MyTableModel tm = (MyTableModel) ioTable.getModel();
         for (i = 0; i < tm.getRowCount(); i++) {
             String szVal = (String) tm.getValueAt(i, ADDRESS_COL);
             String str = (String) tm.getValueAt(i, DESC_COL);
-            String content = String.format("%s=%s \n", szVal, str);
+            String content = String.format("%s=%s \r\n", szVal, str);
+            bw.write(content);
+        }
+    }
+
+    /*********************************
+     *
+     * @param bw
+     * @throws IOException
+     */
+    private void processVarWriting(BufferedWriter bw) throws IOException {
+        int i;
+        varTableModel tm = (varTableModel) varTable.getModel();
+        for (i = 0; i < tm.getRowCount(); i++) {
+            String szVal = (String) tm.getValueAt(i, ADDRESS_COL);
+            String str = (String) tm.getValueAt(i, DESC_COL);
+            String content = String.format("%s=%s \r\n", szVal, str);
             bw.write(content);
         }
     }
@@ -261,15 +386,40 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
     private void process(String str) {
         String[] splitter = new String[2];
         splitter = str.split("=");
-        int i;
-        MyTableModel tm = (MyTableModel) jTable1.getModel();
+
+
+        //for (int i = 1; i < MAX_IO; i++) {
+        int address = Integer.valueOf(splitter[0]);
+        Object[] data = {String.format("%02d", address), splitter[1].trim(), new Boolean(false)};
+        objTableModel.addRow(data);
+        //}
+        //ioTable.setModel(objTableModel);
+/*
+        MyTableModel tm = (MyTableModel) ioTable.getModel();
         for (i = 0; i < tm.getRowCount(); i++) {
-            if (((String) tm.getValueAt(i, ADDRESS_COL)).matches(splitter[0].trim())) {
-                break;
-            }
+        if (((String) tm.getValueAt(i, ADDRESS_COL)).matches(splitter[0].trim())) {
+        break;
+        }
         }
         tm.setValueAt(splitter[1].trim(), i, DESC_COL);
+         */
+    }
 
+    /*********************
+     *
+     */
+    private void processVar(String str, int i) {
+        String[] splitter = new String[2];
+        splitter = str.split("=");
+        //int i;
+        varTableModel tm = (varTableModel) varTable.getModel();
+        /*for (i = 0; i < tm.getRowCount(); i++) {
+        if (((String) tm.getValueAt(i, ADDRESS_COL)).matches(splitter[0].trim())) {
+        break;
+        }
+        }*/
+        tm.setValueAt(splitter[0].trim(), i, ADDRESS_COL);
+        tm.setValueAt(splitter[1].trim(), i, DESC_COL);
     }
 
     /**********************************
@@ -329,10 +479,10 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
         minuxPoubelleTxt = new javax.swing.JButton();
         plusPoubelleTxt = new javax.swing.JButton();
         jLabel1 = new javax.swing.JLabel();
-        iplclTxt1 = new javax.swing.JTextField();
+        iplclTxt = new javax.swing.JTextField();
         jLabel2 = new javax.swing.JLabel();
         portLclTxt = new javax.swing.JTextField();
-        ipRmtTxt1 = new javax.swing.JTextField();
+        ipRmtTxt = new javax.swing.JTextField();
         jLabel3 = new javax.swing.JLabel();
         jLabel4 = new javax.swing.JLabel();
         portRmtTxt = new javax.swing.JTextField();
@@ -341,9 +491,13 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
         setBtn = new javax.swing.JButton();
         getBtn = new javax.swing.JButton();
         jScrollPane2 = new javax.swing.JScrollPane();
-        jTable1 = new javax.swing.JTable();
+        ioTable = new javax.swing.JTable();
         getVarBtn = new javax.swing.JButton();
         writeBtn = new javax.swing.JButton();
+        jScrollPane3 = new javax.swing.JScrollPane();
+        varTable = new javax.swing.JTable();
+        plusBtn = new javax.swing.JButton();
+        delBtn = new javax.swing.JButton();
         menuBar = new javax.swing.JMenuBar();
         javax.swing.JMenu fileMenu = new javax.swing.JMenu();
         javax.swing.JMenuItem exitMenuItem = new javax.swing.JMenuItem();
@@ -678,8 +832,8 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
         jLabel1.setText(resourceMap.getString("jLabel1.text")); // NOI18N
         jLabel1.setName("jLabel1"); // NOI18N
 
-        iplclTxt1.setText(resourceMap.getString("iplclTxt1.text")); // NOI18N
-        iplclTxt1.setName("iplclTxt1"); // NOI18N
+        iplclTxt.setText(resourceMap.getString("iplclTxt.text")); // NOI18N
+        iplclTxt.setName("iplclTxt"); // NOI18N
 
         jLabel2.setText(resourceMap.getString("jLabel2.text")); // NOI18N
         jLabel2.setName("jLabel2"); // NOI18N
@@ -687,8 +841,8 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
         portLclTxt.setText(resourceMap.getString("portLclTxt.text")); // NOI18N
         portLclTxt.setName("portLclTxt"); // NOI18N
 
-        ipRmtTxt1.setText(resourceMap.getString("ipRmtTxt1.text")); // NOI18N
-        ipRmtTxt1.setName("ipRmtTxt1"); // NOI18N
+        ipRmtTxt.setText(resourceMap.getString("ipRmtTxt.text")); // NOI18N
+        ipRmtTxt.setName("ipRmtTxt"); // NOI18N
 
         jLabel3.setText(resourceMap.getString("jLabel3.text")); // NOI18N
         jLabel3.setName("jLabel3"); // NOI18N
@@ -726,8 +880,8 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
 
         jScrollPane2.setName("jScrollPane2"); // NOI18N
 
-        jTable1.setName("jTable1"); // NOI18N
-        jScrollPane2.setViewportView(jTable1);
+        ioTable.setName("ioTable"); // NOI18N
+        jScrollPane2.setViewportView(ioTable);
 
         getVarBtn.setText(resourceMap.getString("getVarBtn.text")); // NOI18N
         getVarBtn.setName("getVarBtn"); // NOI18N
@@ -742,6 +896,29 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
         writeBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 writeBtnActionPerformed(evt);
+            }
+        });
+
+        jScrollPane3.setName("jScrollPane3"); // NOI18N
+
+        varTable.setName("varTable"); // NOI18N
+        jScrollPane3.setViewportView(varTable);
+
+        plusBtn.setFont(resourceMap.getFont("plusBtn.font")); // NOI18N
+        plusBtn.setText(resourceMap.getString("plusBtn.text")); // NOI18N
+        plusBtn.setName("plusBtn"); // NOI18N
+        plusBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                plusBtnActionPerformed(evt);
+            }
+        });
+
+        delBtn.setFont(resourceMap.getFont("delBtn.font")); // NOI18N
+        delBtn.setText(resourceMap.getString("delBtn.text")); // NOI18N
+        delBtn.setName("delBtn"); // NOI18N
+        delBtn.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                delBtnActionPerformed(evt);
             }
         });
 
@@ -838,27 +1015,32 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
                                 .add(18, 18, 18)
                                 .add(jLabel1)
                                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
-                                .add(iplclTxt1, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 142, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                .add(iplclTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 142, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                                 .add(16, 16, 16)
                                 .add(jLabel2)
                                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                                 .add(portLclTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 59, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)))))
-                .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                 .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
                     .add(mainPanelLayout.createSequentialGroup()
                         .add(14, 14, 14)
                         .add(jLabel3)
                         .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
-                        .add(ipRmtTxt1, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 221, Short.MAX_VALUE)
+                        .add(ipRmtTxt, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 271, Short.MAX_VALUE)
                         .add(18, 18, 18)
                         .add(jLabel4)
                         .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                         .add(portRmtTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 59, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                         .add(59, 59, 59))
                     .add(mainPanelLayout.createSequentialGroup()
-                        .add(35, 35, 35)
-                        .add(jScrollPane2, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
-                        .addContainerGap())))
+                        .add(34, 34, 34)
+                        .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.TRAILING)
+                            .add(plusBtn)
+                            .add(delBtn))
+                        .addPreferredGap(org.jdesktop.layout.LayoutStyle.UNRELATED)
+                        .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
+                            .add(jScrollPane3, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                            .add(jScrollPane2, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
+                        .add(44, 44, 44))))
         );
         mainPanelLayout.setVerticalGroup(
             mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
@@ -922,20 +1104,24 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
                         .add(23, 23, 23)
                         .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE)
                             .add(jLabel1)
-                            .add(iplclTxt1, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                            .add(iplclTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                             .add(jLabel2)
                             .add(portLclTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                             .add(jLabel3)
-                            .add(ipRmtTxt1, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                            .add(ipRmtTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                             .add(jLabel4)
                             .add(portRmtTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
                         .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
                             .add(mainPanelLayout.createSequentialGroup()
                                 .add(18, 18, 18)
-                                .add(controlLevelBtn, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 45, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE)
+                                    .add(controlLevelBtn, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 45, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                    .add(plusBtn, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 34, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
+                                .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                                 .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
                                     .add(mainPanelLayout.createSequentialGroup()
-                                        .add(185, 185, 185)
+                                        .add(delBtn, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 34, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                        .add(145, 145, 145)
                                         .add(mainPanelLayout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE)
                                             .add(regAddrCombo, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                                             .add(regTxt, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
@@ -945,13 +1131,13 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
                                             .add(getBtn, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 23, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
                                         .add(18, 18, 18)
                                         .add(jScrollPane1, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 148, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
-                                    .add(mainPanelLayout.createSequentialGroup()
-                                        .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
-                                        .add(speedSlider, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 338, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))))
+                                    .add(speedSlider, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 338, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)))
                             .add(mainPanelLayout.createSequentialGroup()
                                 .add(29, 29, 29)
-                                .add(jScrollPane2, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)))))
-                .add(3, 3, 3))
+                                .add(jScrollPane2, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 224, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
+                                .add(jScrollPane3, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 224, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)))))
+                .addContainerGap())
         );
 
         menuBar.setName("menuBar"); // NOI18N
@@ -991,22 +1177,52 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             comUdp.sendData(SET_SPEED_CMD, String.format("%4d", fps), globalCom.m_targetIp, globalCom.m_sendPort);
         }
     }//GEN-LAST:event_speedSliderStateChanged
-    private void broadcastPing() {
-    }
-    private void connectBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_connectBtnActionPerformed
-        /*try {
-        ping();
-        } catch (SocketException ex) {
-        Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (UnknownHostException ex) {
-        Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
-        Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
-        }*/
-        connectClient();
 
-        readFile("../conf/descRegister.txt");
+    private void connectBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_connectBtnActionPerformed
+        connectClient();
+        loadIoTable();
+        loadVarTable();
     }//GEN-LAST:event_connectBtnActionPerformed
+
+    public void loadIoTable() {
+        readFile("../conf/descRegister.txt");
+        Thread updateIoTh = new Thread() {
+
+            @Override
+            public void run() {
+                for (int i = 1; i < MAX_IO; i++) {
+                    try {
+                        comUdp.sendData(GET_REG_CMD, String.format("%04d", (Integer) i), globalCom.m_targetIp, globalCom.m_sendPort);
+                        sleep(100);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        };
+        updateIoTh.start();
+    }
+
+    public void loadVarTable() {
+        readVarFile("../conf/varDescRegister.txt");
+        Thread updateIoTh = new Thread() {
+
+            @Override
+            public void run() {
+                varTableModel tm = (varTableModel) varTable.getModel();
+                for (int i = 0; i < tm.getRowCount(); i++) {
+                    try {
+                        comUdp.sendData(GET_VAR_CMD, String.format("%s", (String) tm.getValueAt(i, ADDRESS_COL)), globalCom.m_targetIp, globalCom.m_sendPort);
+                        sleep(100);
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        };
+        updateIoTh.start();
+    }
+
     private void connectClient() {
         try {
             //init socket
@@ -1015,7 +1231,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             //reception
             globalCom.m_recptPort = portLclTxt.getText();
             //adresse cible
-            globalCom.m_targetIp = ipRmtTxt1.getText();
+            globalCom.m_targetIp = ipRmtTxt.getText();
             portRecpt = Integer.valueOf(globalCom.m_recptPort);
             globalCom.m_sendPort = portRmtTxt.getText();
             InetAddress laddrRecept = InetAddress.getByName(globalCom.m_localIp);
@@ -1024,7 +1240,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             QuoteServerThread m_serverThread = new QuoteServerThread(socketRecpt, this.getFrame());
             m_serverThread.setRefLogui(logTxt);
             m_serverThread.setToken(bSendReq);
-            m_serverThread.setRefAddress(globalCom.m_localIp, globalCom.m_recptPort);
+            m_serverThread.setRefParent(this);
             m_serverThread.setRefUI(cadenceTxt, totalAProduireTxt, magP1Txt, capsBonnesTxt, dechetsTxt, videsTxt, poubelleTxt, speedSlider, speedSliderSet);
 
             m_serverThread.start();
@@ -1216,7 +1432,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
     private void setBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_setBtnActionPerformed
         int addr = Integer.valueOf((String) regAddrCombo.getSelectedItem());
         int val = Integer.valueOf((String) regTxt.getText());
-        comUdp.sendData(SET_REG_CMD, String.format("%04d-%04d", addr, val), globalCom.m_targetIp, globalCom.m_sendPort);
+        comUdp.sendData(SET_REG_CMD, String.format("%04d%04d", addr, val), globalCom.m_targetIp, globalCom.m_sendPort);
     }//GEN-LAST:event_setBtnActionPerformed
 
     private void getBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_getBtnActionPerformed
@@ -1226,7 +1442,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
 
     private void getVarBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_getVarBtnActionPerformed
         Object szVal = regTxt.getText();
-        comUdp.sendData(GET_REG_CMD, String.format("%s", (String) szVal), globalCom.m_targetIp, globalCom.m_sendPort);
+        comUdp.sendData(GET_VAR_CMD, String.format("%s", (String) szVal), globalCom.m_targetIp, globalCom.m_sendPort);
     }//GEN-LAST:event_getVarBtnActionPerformed
 
     private void writeBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_writeBtnActionPerformed
@@ -1236,6 +1452,22 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_writeBtnActionPerformed
+
+    private void plusBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_plusBtnActionPerformed
+        if (objTableModel.getRowCount() > 0) {
+            Object[] data = {String.format("%02d", m_selectedRow + 1), "no desc", new Boolean(false)};
+            objTableModel.insertRow(m_selectedRow + 1, data);
+        } else {
+            Object[] data = {String.format("%02d", 0), "no desc", new Boolean(false)};
+            objTableModel.insertRow(0, data);
+        }
+    }//GEN-LAST:event_plusBtnActionPerformed
+
+    private void delBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_delBtnActionPerformed
+        if (objTableModel.getRowCount() > 0) {
+            objTableModel.removeRow(m_selectedRow);
+        }
+    }//GEN-LAST:event_delBtnActionPerformed
 
     @Action
     public void connectSettings() {
@@ -1248,13 +1480,15 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
     private javax.swing.JButton connectBtn;
     private javax.swing.JToggleButton controlLevelBtn;
     private javax.swing.JTextField dechetsTxt;
+    private javax.swing.JButton delBtn;
     private javax.swing.JToggleButton fastModeToggleBtn;
     private javax.swing.JToggleButton finBatonToggleBtn;
     private javax.swing.JButton getBtn;
     private javax.swing.JButton getEnvBtn;
     private javax.swing.JButton getVarBtn;
-    private javax.swing.JTextField ipRmtTxt1;
-    private javax.swing.JTextField iplclTxt1;
+    private javax.swing.JTable ioTable;
+    public javax.swing.JTextField ipRmtTxt;
+    private javax.swing.JTextField iplclTxt;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
@@ -1270,7 +1504,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
     private javax.swing.JMenuItem jMenuItem1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
-    private javax.swing.JTable jTable1;
+    private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JTextArea logTxt;
     private javax.swing.JTextField magP1Txt;
     private javax.swing.JPanel mainPanel;
@@ -1279,12 +1513,13 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
     private javax.swing.JButton minusMagTxt;
     private javax.swing.JButton minusVidesTxt;
     private javax.swing.JButton minuxPoubelleTxt;
+    private javax.swing.JButton plusBtn;
     private javax.swing.JButton plusDechetsTxt;
     private javax.swing.JButton plusMagTxt;
     private javax.swing.JButton plusPoubelleTxt;
     private javax.swing.JButton plusVidesTxt;
     private javax.swing.JTextField portLclTxt;
-    private javax.swing.JTextField portRmtTxt;
+    public javax.swing.JTextField portRmtTxt;
     private javax.swing.JToggleButton posReposToggleBtn;
     private javax.swing.JTextField poubelleTxt;
     private javax.swing.JComboBox regAddrCombo;
@@ -1293,6 +1528,7 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
     private javax.swing.JButton setBtn;
     private javax.swing.JSlider speedSlider;
     private javax.swing.JTextField totalAProduireTxt;
+    private javax.swing.JTable varTable;
     private javax.swing.JTextField videsTxt;
     private javax.swing.JButton writeBtn;
     // End of variables declaration//GEN-END:variables

@@ -34,6 +34,9 @@ public interface protocole {
     final static int SET_POS_REPOS_CMD = 17;
     final static int SET_SEND_VAR_CMD = 18;
     final static int SET_REG_CMD = 19;
+    final static int SET_VAR_CMD = 20;
+    final static int PING_CMD = 22;
+    final static int SET_CLIENT_CONNECTION_CMD = 23;
     final static int GET_ENV_CMD = 24;
     final static int GET_SPEED_CMD = 25;
     final static int GET_DECHETS_CMD = 26;
@@ -44,4 +47,5 @@ public interface protocole {
     final static int GET_MAG_P1_CMD = 31;
     final static int GET_ROBOT_SPEED_CMD = 32;
     final static int GET_REG_CMD = 33;
+    final static int GET_VAR_CMD = 34;
 }
