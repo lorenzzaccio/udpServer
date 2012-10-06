@@ -257,17 +257,25 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
 
             @Override
             public void run() {
-                connectClient();
-                while (globalCom.m_searchingRobot == true) {
-                    try {
-                        sleep(100);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                try {
+                    connectClient();
+                    while (globalCom.m_searchingRobot == true) {
+                        try {
+                            sleep(100);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
+                    ;
+                    loadIoTable();
+                    loadVarTable();
+                } catch (SocketException ex) {
+                    Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (UnknownHostException ex) {
+                    Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (IOException ex) {
+                    Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
                 }
-                ;
-                loadIoTable();
-                loadVarTable();
 
             }
         };
@@ -1182,9 +1190,17 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
     }//GEN-LAST:event_speedSliderStateChanged
 
     private void connectBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_connectBtnActionPerformed
-        connectClient();
-        loadIoTable();
-        loadVarTable();
+        try {
+            connectClient();
+            loadIoTable();
+            loadVarTable();
+        } catch (SocketException ex) {
+            Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (UnknownHostException ex) {
+            Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }//GEN-LAST:event_connectBtnActionPerformed
 
     public void loadIoTable() {
@@ -1226,8 +1242,8 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
         updateIoTh.start();
     }
 
-    private void connectClient() {
-        try {
+    private void connectClient() throws SocketException, UnknownHostException, IOException {
+   //     try {
             //init socket
 /*            DatagramSocket socketRecpt;
             int portRecpt;
@@ -1240,7 +1256,9 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             InetAddress laddrRecept = InetAddress.getByName(globalCom.m_localIp);
             socketRecpt = new DatagramSocket(portRecpt, laddrRecept);
 */
-
+            pingReceive();
+            
+            /*
             MulticastSocket socket = new MulticastSocket(5000);
             InetAddress group = InetAddress.getByName("230.0.0.1");
 
@@ -1254,26 +1272,11 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
             handlePing(packet);
             String received = new String(packet.getData());
             System.out.println("Quote of the Moment: " + received);
-
-
-
-//            socket.leaveGroup(group);
-
-//            socket.close();
-
-/*
-            //start server thread
-            QuoteServerThread m_serverThread = new QuoteServerThread(socketRecpt, this.getFrame());
-            m_serverThread.setRefLogui(logTxt);
-            m_serverThread.setToken(bSendReq);
-            m_serverThread.setRefParent(this);
-            m_serverThread.setRefUI(cadenceTxt, totalAProduireTxt, magP1Txt, capsBonnesTxt, dechetsTxt, videsTxt, poubelleTxt, speedSlider, speedSliderSet);
-
-            m_serverThread.start();
-*/
+             
+             
         } catch (IOException ex) {
             Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        }*/
     }
 
     private void handlePing(DatagramPacket packet) throws UnknownHostException, SocketException, IOException {
@@ -1320,14 +1323,49 @@ public class UdpServerView extends FrameView implements protocole, tableMap {
         }
     }
 
-    private void ping() throws SocketException, UnknownHostException, IOException {
-        int portRecpt = Integer.valueOf(globalCom.m_recptPort);
-        globalCom.m_sendPort = portRmtTxt.getText();
-        InetAddress laddrRecept = InetAddress.getByName(globalCom.m_localIp);
-        DatagramSocket socketRecpt = new DatagramSocket(portRecpt, laddrRecept);
-        multicastQuoteServerThread m_pingServerThread = new multicastQuoteServerThread(socketRecpt, this.getFrame());
-        m_pingServerThread.start();
+    private void pingReceive() throws SocketException, UnknownHostException, IOException {
+        DatagramSocket socket;
+        boolean bLoop = true;
+
+    try {
+      //Keep a socket open to listen to all the UDP trafic that is destined for this port
+      socket = new DatagramSocket(5000, InetAddress.getByName("0.0.0.0"));
+      socket.setBroadcast(true);
+
+      while (bLoop) {
+        System.out.println(getClass().getName() + ">>>Ready to receive broadcast packets!");
+
+        //Receive a packet
+        byte[] recvBuf = new byte[15000];
+        DatagramPacket packet = new DatagramPacket(recvBuf, recvBuf.length);
+        socket.receive(packet);
+
+        //Packet received
+        System.out.println(getClass().getName() + ">>>Discovery packet received from: " + packet.getAddress().getHostAddress());
+        //System.out.println(getClass().getName() + ">>>Packet received; data: " + new String(packet.getData()));
+        socket.close();
+        bLoop = false;
+        handlePing(packet);
+        
+/*
+        //See if the packet holds the right command (message)
+        String message = new String(packet.getData()).trim();
+        if (message.equals("DISCOVER_FUIFSERVER_REQUEST")) {
+          byte[] sendData = "DISCOVER_FUIFSERVER_RESPONSE".getBytes();
+
+          //Send a response
+          DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, packet.getAddress(), packet.getPort());
+          socket.send(sendPacket);
+
+          System.out.println(getClass().getName() + ">>>Sent packet to: " + sendPacket.getAddress().getHostAddress());
+        }*/
+      }
+  
+
+    } catch (IOException ex) {
+      Logger.getLogger(UdpServerView.class.getName()).log(Level.SEVERE, null, ex);
     }
+  }
 
     private void getEnvBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_getEnvBtnActionPerformed
         comUdp.sendData(GET_ENV_CMD, "00", globalCom.m_targetIp, globalCom.m_sendPort);

@@ -91,11 +91,6 @@ public class QuoteServerThread extends Thread implements protocole, tableMap {
         socket = sock;
         parent = par;
 
-        try {
-            in = new BufferedReader(new FileReader("one-liners.rtf"));
-        } catch (FileNotFoundException e) {
-            System.err.println("Could not open quote file. Serving time instead.");
-        }
     }
 
     @Override
